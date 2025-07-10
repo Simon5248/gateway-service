@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -32,9 +33,20 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             String path = exchange.getRequest().getURI().getPath();
+            
+            // 處理 OPTIONS 請求
+            if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
+                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:5500");
+                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PUT,DELETE,OPTIONS");
+                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "*");
+                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "3600");
+                exchange.getResponse().setStatusCode(HttpStatus.OK);
+                return exchange.getResponse().setComplete();
+            }
 
             // 1. 檢查請求的路徑是否為公開 API
             if (publicApiEndpoints.stream().anyMatch(path::startsWith)) {
+                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:5500");
                 return chain.filter(exchange);
             }
 
@@ -52,7 +64,6 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
             // 3. 提取並驗證 JWT
             String jwt = authHeader.substring(7);
             try {
-                //String username = jwtUtil.extractUsername(jwt);
                 if (!jwtUtil.validateToken(jwt)) {
                     return handleUnauthorized(exchange, "Invalid JWT token");
                 }
@@ -61,12 +72,14 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
             }
 
             // 4. 驗證通過，放行請求
+            exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:5500");
             return chain.filter(exchange);
         };
     }
 
     private Mono<Void> handleUnauthorized(ServerWebExchange exchange, String message) {
         System.out.println("Unauthorized request: " + message);
+        exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:5500");
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         return exchange.getResponse().setComplete();
     }
