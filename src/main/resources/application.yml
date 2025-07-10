@@ -6,38 +6,46 @@ spring:
     name: gateway-service
   cloud:
     gateway:
-      # 啟用與服務發現的整合，這樣才能使用 lb:// 協議
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            exposedHeaders:
+              - Authorization
+            maxAge: 3600
       discovery:
         locator:
           enabled: true 
-      # 這裡定義所有的路由規則
       routes:
-        # 規則一：使用者服務的路由
-        - id: user-service-route  # 路由的唯一ID，自訂名稱
-          # uri: lb://[註冊在Eureka上的服務名稱]
-          # "lb" 代表 Load Balancer (負載均衡)，Gateway 會自動從 Eureka 查詢 USER-SERVICE 的實際地址
+        - id: user-service-route
           uri: lb://USER-SERVICE 
-          # Predicates (斷言/謂詞)：滿足什麼條件的請求會被轉發到這個 uri
           predicates:
-            - Path=/api/auth/** # 當請求的路徑是 /api/auth/ 開頭時，就滿足條件
+            - Path=/api/auth/**
           filters:
-            - AuthenticationFilter # 使用自定義的認證過濾器
+            - AuthenticationFilter
 
-        # 規則二：任務服務的路由
         - id: task-service-route
           uri: lb://TASK-SERVICE
           predicates:
-            - Path=/api/tasks/** # 當請求的路徑是 /api/tasks/ 開頭時
+            - Path=/api/tasks/**
           filters:
-            - AuthenticationFilter # 使用自定義的認證過濾器
+            - AuthenticationFilter
 
-# JWT Configuration
 jwt:
-  secret: "your-256-bit-secret-key-here123456789012345678901234567890"  # 至少 256 bits (32 characters)
-  # Token 有效期限 (24小時 = 24 * 60 * 60 * 1000 毫秒)
-  expiration.ms: 86400000  
+  secret: "your-256-bit-secret-key-here123456789012345678901234567890"
+  expiration.ms: 86400000
 
-# 告訴 Gateway 註冊中心在哪裡
 eureka:
   client:
     service-url:
