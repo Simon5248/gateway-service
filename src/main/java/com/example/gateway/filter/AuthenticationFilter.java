@@ -33,20 +33,9 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             String path = exchange.getRequest().getURI().getPath();
-            
-            // 處理 OPTIONS 請求
-            if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
-                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:5500");
-                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PUT,DELETE,OPTIONS");
-                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "*");
-                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "3600");
-                exchange.getResponse().setStatusCode(HttpStatus.OK);
-                return exchange.getResponse().setComplete();
-            }
 
-            // 1. 檢查請求的路徑是否為公開 API
-            if (publicApiEndpoints.stream().anyMatch(path::startsWith)) {
-                exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:5500");
+            // 1. 檢查請求的路徑是否為公開 API 或 OPTIONS 請求
+            if (publicApiEndpoints.stream().anyMatch(path::startsWith) || exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
                 return chain.filter(exchange);
             }
 
@@ -72,14 +61,12 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
             }
 
             // 4. 驗證通過，放行請求
-            exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:5500");
             return chain.filter(exchange);
         };
     }
 
     private Mono<Void> handleUnauthorized(ServerWebExchange exchange, String message) {
         System.out.println("Unauthorized request: " + message);
-        exchange.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://127.0.0.1:5500");
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         return exchange.getResponse().setComplete();
     }
