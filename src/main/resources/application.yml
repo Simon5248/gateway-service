@@ -3,16 +3,11 @@ server:
 
 logging:
   level:
-    root: INFO
-    "[com.example.gateway]": DEBUG
-    "[com.example.gateway.filter.AuthenticationFilter]": DEBUG
-    "[org.springframework.cloud.gateway]": DEBUG
-    "[org.springframework.security]": DEBUG
-    "[org.springframework.web]": DEBUG
-    "[org.springframework.cloud.gateway.route]": TRACE
-    "[org.springframework.cloud.gateway.handler.RoutePredicateHandlerMapping]": DEBUG
-    "[org.springframework.cloud.gateway.filter.factory]": DEBUG
-    "[org.springframework.cloud.netflix.eureka]": DEBUG
+    root: WARN
+    "[com.example.gateway]": INFO
+    "[org.springframework.cloud.gateway]": INFO
+    "[org.springframework.security]": INFO
+    "[org.springframework.web]": INFO
 
 spring:
   main:
@@ -77,8 +72,8 @@ spring:
             response-timeout: 5000
 
 jwt:
-  secret: "your-super-secret-key-that-should-be-in-env-vars-and-much-longer"
-  expiration.ms: 86400000
+  secret: ${JWT_SECRET:default-secret-key-for-development-only}
+  expiration.ms: ${JWT_EXPIRATION_MS:86400000}
 
 eureka:
   client:
