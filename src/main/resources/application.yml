@@ -1,125 +1,105 @@
 server:
   port: 8080
 
-spring:
-  cloud:
-    gateway:
-      httpclient:
-        connect-timeout: 2000
-        response-timeout: 5s
-        pool:
-          max-idle-time: 15s
-          type: elastic
-          max-connections: 10000
-        wiretap: true
+logging:
+  level:
+    root: INFO
+    "[com.example.gateway]": DEBUG
+    "[com.example.gateway.filter.AuthenticationFilter]": DEBUG
+    "[org.springframework.cloud.gateway]": DEBUG
+    "[org.springframework.security]": DEBUG
+    "[org.springframework.web]": DEBUG
+    "[org.springframework.cloud.gateway.route]": TRACE
+    "[org.springframework.cloud.gateway.handler.RoutePredicateHandlerMapping]": DEBUG
+    "[org.springframework.cloud.gateway.filter.factory]": DEBUG
+    "[org.springframework.cloud.netflix.eureka]": DEBUG
 
+spring:
+  main:
+    allow-bean-definition-overriding: true
   application:
     name: gateway-service
+
   cloud:
     gateway:
       httpclient:
-        connect-timeout: 2000
-        response-timeout: 5s
-        pool:
-          max-idle-time: 15s
-          type: elastic
-          max-connections: 50
+        wiretap: true
+      httpserver:
+        wiretap: true
       default-filters:
         - name: DedupeResponseHeader
           args:
             name: Access-Control-Allow-Origin
             strategy: RETAIN_FIRST
-        # 添加重試機制
-        - name: Retry
-          args:
-            retries: 3
-            statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
-            methods: GET,POST,PUT,DELETE,PATCH
-            backoff:
-              firstBackoff: 50ms
-              maxBackoff: 500ms
-              factor: 2
-              basedOnPreviousValue: false
-      globalcors:
-        add-to-simple-url-handler-mapping: true
-        corsConfigurations:
-          '[/api/auth/**]':
-            allowedOrigins:
-              - "http://127.0.0.1:5500"
-              - "http://localhost:5500"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
-              - PATCH
-            allowedHeaders: "*"
-            exposedHeaders:
-              - Authorization
-              - X-Total-Count
-            allowCredentials: true
-            maxAge: 3600
-          '[/**]':
-            allowedOrigins:
-              - "http://127.0.0.1:5500"
-              - "http://localhost:5500"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
-              - PATCH
-            allowedHeaders: "*"
-            exposedHeaders:
-              - Authorization
-              - X-Total-Count
-            allowCredentials: false
-            maxAge: 3600
       discovery:
         locator:
-          enabled: true 
+          enabled: true
+          lower-case-service-id: false
       routes:
-        - id: user-service-route
-          uri: lb://USER-SERVICE 
+        - id: user-service-auth-route
+          uri: lb://USER-SERVICE
+          order: 0
           predicates:
-            - Path=/api/auth/**
+            - Path=/api/auth/login
           filters:
-            - name: AuthenticationFilter
             - name: DedupeResponseHeader
               args:
                 name: Access-Control-Allow-Origin
                 strategy: RETAIN_FIRST
+          metadata:
+            connect-timeout: 2000
+            response-timeout: 5000
+
+        - id: user-service-route
+          uri: lb://USER-SERVICE
+          order: 1
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: AuthenticationFilter
+          metadata:
+            connect-timeout: 2000
+            response-timeout: 5000
 
         - id: task-service-route
           uri: lb://TASK-SERVICE
+          order: 2
           predicates:
             - Path=/api/tasks/**
           filters:
-            - AuthenticationFilter
+            - name: AuthenticationFilter
+            - name: CircuitBreaker
+              args:
+                name: taskServiceCircuitBreaker
+                fallbackUri: forward:/fallback
+          metadata:
+            connect-timeout: 2000
+            response-timeout: 5000
 
 jwt:
-  secret: "your-256-bit-secret-key-here123456789012345678901234567890"
+  secret: "your-super-secret-key-that-should-be-in-env-vars-and-much-longer"
   expiration.ms: 86400000
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 10
 
 management:
   endpoints:
     web:
       exposure:
         include: "*"
-
-logging:
-  level:
-    root: INFO
-    org.springframework.security: DEBUG
-    org.springframework.web: DEBUG
-    com.example.gateway.client: DEBUG
+  endpoint:
+    health:
+      show-details: always
 
 feign:
   client:
