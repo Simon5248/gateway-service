@@ -16,9 +16,13 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthFilter.class);
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -28,38 +32,37 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        System.out.println("11111111-------------------------------------gateway-service JwtAuthFilter doFilterInternal");
-        String authHeader = request.getHeader("Authorization");
-        String jwt = null;
-        String userEmail = null;
-        
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("-------------------------------------gateway-service JwtAuthFilter doFilterInternal");
-            System.out.println("Authorization header is missing or does not start with Bearer");
-            System.out.println(authHeader);
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        jwt = authHeader.substring(7);
-        userEmail = jwtUtil.extractUsername(jwt);
-
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-            if (jwtUtil.validateToken(jwt, userDetails)) {
-                Long userId = jwtUtil.extractUserId(jwt);
-                // 將 userId 設為 Principal，方便在 Controller 中直接取得
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userId,
-                        null,
-                        userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+        try {
+            String authHeader = request.getHeader("Authorization");
+            
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                logger.debug("No valid authorization header found");
+                filterChain.doFilter(request, response);
+                return;
             }
+
+            String jwt = authHeader.substring(7);
+            String userEmail = jwtUtil.extractUsername(jwt);
+
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                if (jwtUtil.validateToken(jwt, userDetails)) {
+                    Long userId = jwtUtil.extractUserId(jwt);
+                    // 將 userId 設為 Principal，方便在 Controller 中直接取得
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userId,
+                            null,
+                            userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                } else {
+                    logger.warn("Invalid JWT token for user: {}", userEmail);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error processing JWT token", e);
         }
-        System.out.println("2222222-------------------------------------gateway-service JwtAuthFilter doFilterInternal");
-        System.out.println("Authorization header processed successfully");
-           
+        
         filterChain.doFilter(request, response);
     }
 }
