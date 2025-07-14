@@ -8,6 +8,9 @@ logging:
     "[org.springframework.cloud.gateway]": INFO
     "[org.springframework.security]": INFO
     "[org.springframework.web]": INFO
+# 日誌格式設定
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{15}) - %msg%n"
 
 spring:
   main:
@@ -70,10 +73,6 @@ spring:
           metadata:
             connect-timeout: 2000
             response-timeout: 5000
-
-jwt:
-  secret: ${JWT_SECRET:default-secret-key-for-development-only}
-  expiration.ms: ${JWT_EXPIRATION_MS:86400000}
 
 eureka:
   client:
